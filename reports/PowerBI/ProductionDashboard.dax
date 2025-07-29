@@ -1,0 +1,357 @@
+-- PowerBI DAX Measures for Manufacturing Operations Dashboard
+-- Demonstrates advanced DAX calculations for production analytics
+
+-- Key Performance Indicators (KPIs)
+
+-- Overall Equipment Effectiveness (OEE)
+OEE = 
+VAR Availability = DIVIDE([Total Available Hours], [Total Scheduled Hours], 0)
+VAR Performance = DIVIDE([Actual Production Rate], [Ideal Production Rate], 0)
+VAR Quality = DIVIDE([Good Units Produced], [Total Units Produced], 0)
+RETURN
+    Availability * Performance * Quality * 100
+
+-- On-Time Delivery Rate
+On_Time_Delivery_Rate = 
+DIVIDE(
+    CALCULATE(
+        COUNTROWS(ProductionOrders),
+        ProductionOrders[Status] = 5,
+        ProductionOrders[ActualEndDate] <= ProductionOrders[ScheduledEndDate]
+    ),
+    CALCULATE(
+        COUNTROWS(ProductionOrders),
+        ProductionOrders[Status] = 5
+    ),
+    0
+) * 100
+
+-- Cost Variance Percentage
+Cost_Variance_Percentage = 
+DIVIDE(
+    SUM(ProductionOrders[ActualCost]) - SUM(ProductionOrders[EstimatedCost]),
+    SUM(ProductionOrders[EstimatedCost]),
+    0
+) * 100
+
+-- Quality Pass Rate
+Quality_Pass_Rate = 
+DIVIDE(
+    CALCULATE(
+        COUNTROWS(QualityInspections),
+        QualityInspections[Passed] = TRUE()
+    ),
+    COUNTROWS(QualityInspections),
+    0
+) * 100
+
+-- Production Volume Measures
+
+-- Total Production Volume
+Total_Production_Volume = SUM(ProductionOrders[QuantityCompleted])
+
+-- Production Volume MTD (Month to Date)
+Production_Volume_MTD = 
+CALCULATE(
+    [Total_Production_Volume],
+    DATESMTD(ProductionOrders[CreatedDate])
+)
+
+-- Production Volume YTD (Year to Date)
+Production_Volume_YTD = 
+CALCULATE(
+    [Total_Production_Volume],
+    DATESYTD(ProductionOrders[CreatedDate])
+)
+
+-- Production Volume Previous Month
+Production_Volume_Previous_Month = 
+CALCULATE(
+    [Total_Production_Volume],
+    DATEADD(ProductionOrders[CreatedDate], -1, MONTH)
+)
+
+-- Production Volume Growth Rate
+Production_Volume_Growth_Rate = 
+DIVIDE(
+    [Production_Volume_MTD] - [Production_Volume_Previous_Month],
+    [Production_Volume_Previous_Month],
+    0
+) * 100
+
+-- Efficiency Measures
+
+-- Average Cycle Time (Hours)
+Average_Cycle_Time = 
+AVERAGEX(
+    FILTER(
+        ProductionOrders,
+        ProductionOrders[ActualStartDate] <> BLANK() &&
+        ProductionOrders[ActualEndDate] <> BLANK()
+    ),
+    DATEDIFF(
+        ProductionOrders[ActualStartDate],
+        ProductionOrders[ActualEndDate],
+        HOUR
+    )
+)
+
+-- Planned vs Actual Cycle Time Variance
+Cycle_Time_Variance = 
+VAR PlannedCycleTime = 
+    AVERAGEX(
+        ProductionOrders,
+        DATEDIFF(
+            ProductionOrders[ScheduledStartDate],
+            ProductionOrders[ScheduledEndDate],
+            HOUR
+        )
+    )
+VAR ActualCycleTime = [Average_Cycle_Time]
+RETURN
+    DIVIDE(ActualCycleTime - PlannedCycleTime, PlannedCycleTime, 0) * 100
+
+-- Equipment Utilization Rate
+Equipment_Utilization_Rate = 
+AVERAGEX(
+    Equipment,
+    DIVIDE(
+        Equipment[OperatingHours],
+        Equipment[OperatingHours] + Equipment[MaintenanceHours],
+        0
+    )
+) * 100
+
+-- Quality Measures
+
+-- First Pass Yield
+First_Pass_Yield = 
+DIVIDE(
+    CALCULATE(
+        COUNTROWS(QualityInspections),
+        QualityInspections[Passed] = TRUE(),
+        QualityInspections[Type] = 3 -- Final Inspection
+    ),
+    CALCULATE(
+        COUNTROWS(QualityInspections),
+        QualityInspections[Type] = 3 -- Final Inspection
+    ),
+    0
+) * 100
+
+-- Defect Rate per Million
+Defect_Rate_PPM = 
+DIVIDE(
+    SUM(QualityInspections[DefectCount]),
+    [Total_Production_Volume],
+    0
+) * 1000000
+
+-- Rework Rate
+Rework_Rate = 
+DIVIDE(
+    CALCULATE(
+        COUNTROWS(QualityInspections),
+        QualityInspections[Status] = 6 -- Rework status
+    ),
+    COUNTROWS(QualityInspections),
+    0
+) * 100
+
+-- Cost Analysis Measures
+
+-- Total Manufacturing Cost
+Total_Manufacturing_Cost = SUM(ProductionOrders[ActualCost])
+
+-- Cost per Unit
+Cost_per_Unit = 
+DIVIDE(
+    [Total_Manufacturing_Cost],
+    [Total_Production_Volume],
+    0
+)
+
+-- Material Cost Percentage
+Material_Cost_Percentage = 
+VAR MaterialCost = 
+    SUMX(
+        ProductionOrders,
+        ProductionOrders[ActualCost] * 0.6 -- Assuming 60% material cost
+    )
+RETURN
+    DIVIDE(MaterialCost, [Total_Manufacturing_Cost], 0) * 100
+
+-- Labor Efficiency
+Labor_Efficiency = 
+VAR PlannedLaborHours = 
+    SUMX(
+        ProductionOrders,
+        DATEDIFF(
+            ProductionOrders[ScheduledStartDate],
+            ProductionOrders[ScheduledEndDate],
+            HOUR
+        ) * ProductionOrders[Quantity]
+    )
+VAR ActualLaborHours = 
+    SUMX(
+        FILTER(
+            ProductionOrders,
+            ProductionOrders[ActualStartDate] <> BLANK() &&
+            ProductionOrders[ActualEndDate] <> BLANK()
+        ),
+        DATEDIFF(
+            ProductionOrders[ActualStartDate],
+            ProductionOrders[ActualEndDate],
+            HOUR
+        ) * ProductionOrders[QuantityCompleted]
+    )
+RETURN
+    DIVIDE(PlannedLaborHours, ActualLaborHours, 0) * 100
+
+-- Time-based Analysis Measures
+
+-- Average Lead Time (Days)
+Average_Lead_Time = 
+AVERAGEX(
+    FILTER(
+        ProductionOrders,
+        ProductionOrders[ActualEndDate] <> BLANK()
+    ),
+    DATEDIFF(
+        ProductionOrders[CreatedDate],
+        ProductionOrders[ActualEndDate],
+        DAY
+    )
+)
+
+-- On-Schedule Performance
+On_Schedule_Performance = 
+DIVIDE(
+    CALCULATE(
+        COUNTROWS(ProductionOrders),
+        ProductionOrders[ActualStartDate] <= ProductionOrders[ScheduledStartDate]
+    ),
+    CALCULATE(
+        COUNTROWS(ProductionOrders),
+        ProductionOrders[ActualStartDate] <> BLANK()
+    ),
+    0
+) * 100
+
+-- Inventory Turnover (simulated)
+Inventory_Turnover = 
+DIVIDE(
+    [Total_Manufacturing_Cost] * 12, -- Annualized
+    SUM(ProductionOrders[EstimatedCost]) * 0.25, -- Assuming 25% inventory
+    0
+)
+
+-- Dynamic Calculations with Time Intelligence
+
+-- Previous Period Production Volume
+Previous_Period_Production = 
+CALCULATE(
+    [Total_Production_Volume],
+    PREVIOUSMONTH(ProductionOrders[CreatedDate])
+)
+
+-- Rolling 12-Month Average
+Rolling_12_Month_Avg_Production = 
+CALCULATE(
+    AVERAGE(ProductionOrders[QuantityCompleted]),
+    DATESINPERIOD(
+        ProductionOrders[CreatedDate],
+        LASTDATE(ProductionOrders[CreatedDate]),
+        -12,
+        MONTH
+    )
+)
+
+-- Trend Analysis
+Production_Trend = 
+VAR CurrentMonth = [Production_Volume_MTD]
+VAR PreviousMonth = [Production_Volume_Previous_Month]
+RETURN
+    SWITCH(
+        TRUE(),
+        CurrentMonth > PreviousMonth * 1.05, "↗ Increasing",
+        CurrentMonth < PreviousMonth * 0.95, "↘ Decreasing",
+        "→ Stable"
+    )
+
+-- Conditional Formatting Helpers
+
+-- Performance Status Color
+Performance_Status_Color = 
+SWITCH(
+    TRUE(),
+    [On_Time_Delivery_Rate] >= 95, "Green",
+    [On_Time_Delivery_Rate] >= 85, "Yellow",
+    "Red"
+)
+
+-- Quality Status Color
+Quality_Status_Color = 
+SWITCH(
+    TRUE(),
+    [Quality_Pass_Rate] >= 98, "Green",
+    [Quality_Pass_Rate] >= 95, "Yellow",
+    "Red"
+)
+
+-- Efficiency Status Color
+Efficiency_Status_Color = 
+SWITCH(
+    TRUE(),
+    [Equipment_Utilization_Rate] >= 85, "Green",
+    [Equipment_Utilization_Rate] >= 70, "Yellow",
+    "Red"
+)
+
+-- Advanced Analytics
+
+-- Capacity Utilization
+Capacity_Utilization = 
+VAR TotalCapacity = 
+    SUMX(
+        Equipment,
+        DATEDIFF(
+            Equipment[InstallationDate],
+            TODAY(),
+            DAY
+        ) * 24 * Equipment[EfficiencyRating] / 100
+    )
+VAR UsedCapacity = SUM(Equipment[OperatingHours])
+RETURN
+    DIVIDE(UsedCapacity, TotalCapacity, 0) * 100
+
+-- Predictive Quality Score
+Predictive_Quality_Score = 
+VAR RecentQualityTrend = 
+    CALCULATE(
+        [Quality_Pass_Rate],
+        DATESINPERIOD(
+            QualityInspections[CreatedDate],
+            TODAY(),
+            -30,
+            DAY
+        )
+    )
+VAR HistoricalAverage = [Quality_Pass_Rate]
+RETURN
+    (RecentQualityTrend * 0.7) + (HistoricalAverage * 0.3)
+
+-- Customer Satisfaction Index (Simulated)
+Customer_Satisfaction_Index = 
+([On_Time_Delivery_Rate] * 0.4) + 
+([Quality_Pass_Rate] * 0.4) + 
+((100 - ABS([Cost_Variance_Percentage])) * 0.2)
+
+-- Facility Performance Ranking
+Facility_Performance_Rank = 
+RANKX(
+    ALL(Facilities[Name]),
+    [Customer_Satisfaction_Index],
+    ,
+    DESC
+) 

@@ -1,0 +1,74 @@
+# .NET Core
+bin/
+obj/
+out/
+*.dll
+*.exe
+*.pdb
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.vsidx
+*.vssscc
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.trx
+*.coverage
+*.coveragexml
+
+# Entity Framework
+*.edmx.diagram
+*.edmx.sql
+
+# Database files
+*.mdf
+*.ldf
+*.ndf
+
+# Configuration files (keep templates, ignore actual configs with secrets)
+appsettings.Development.json
+appsettings.Production.json
+**/connectionstrings.json
+
+# Logs
+logs/
+*.log
+
+# Package files
+*.nupkg
+*.snupkg
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# PowerBI
+*.pbix.tmp
+*.pbix~ 
